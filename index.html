@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Undertale - Checkmate Comedian</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/game.js" defer></script>
+</head>
+<body>
+  <main class="game-container" id="game-container" tabindex="0">
+    <div id="attack-arena" class="attack-arena"></div>
+    <section class="opponent-area">
+      <div class="frisk-wrapper">
+        <div class="frisk-hp-box" id="frisk-hp-box">
+          <div class="frisk-hp-bg">
+            <div class="frisk-hp-fill" id="frisk-hp-fill"></div>
+            <div class="frisk-hp-kr" id="frisk-hp-kr"></div>
+          </div>
+        </div>
+        <div class="frisk-composite" id="frisk">
+          <img src="assets/sprites/FRISK_HEAD_IDLE.png" alt="Frisk Head" class="frisk-part frisk-head">
+          <img src="assets/sprites/FRISK_TORSO_IDLE.png" alt="Frisk Torso" class="frisk-part frisk-torso">
+          <img src="assets/sprites/FRISK_LEGS_IDLE.png" alt="Frisk Legs" class="frisk-part frisk-legs">
+        </div>
+      </div>
+    </section>
+
+    <section class="dialogue-box">
+      <p id="dialogue-text">* it's a beautiful day outside.<br>* birds are singing, flowers are blooming.<br>* on days like these... kids like them.</p>
+    </section>
+
+    <div class="stats-bar">
+      <span class="stat-name">SANS</span>
+      <span class="stat-lv">LV 1</span>
+      
+      <div class="hp-container">
+        <span class="hp-label">HP</span>
+        <div class="hp-bar-bg">
+          <div class="hp-bar-fill" id="hp-fill"></div>
+        </div>
+        <span class="hp-text" id="hp-text">1 / 1</span>
+      </div>
+
+      <div class="sp-container">
+        <span class="sp-label">SP</span>
+        <div class="sp-bar-bg">
+          <div class="sp-bar-fill" id="sp-fill"></div>
+        </div>
+        <span class="sp-text" id="sp-text">10 / 10</span>
+      </div>
+    </div>
+
+    <nav class="action-buttons" id="action-buttons">
+      <button class="ui-btn btn-fight active" data-index="0" aria-label="Fight">
+        <img src="assets/sprites/SOUL_MONSTER.png" alt="Soul" class="soul-icon">
+      </button>
+      <button class="ui-btn btn-act" data-index="1" aria-label="Act">
+        <img src="assets/sprites/SOUL_MONSTER.png" alt="Soul" class="soul-icon">
+      </button>
+      <button class="ui-btn btn-item" data-index="2" aria-label="Item">
+        <img src="assets/sprites/SOUL_MONSTER.png" alt="Soul" class="soul-icon">
+      </button>
+      <button class="ui-btn btn-mercy" data-index="3" aria-label="Mercy">
+        <img src="assets/sprites/SOUL_MONSTER.png" alt="Soul" class="soul-icon">
+      </button>
+    </nav>
+
+    <div id="start-screen" class="start-screen">
+      <p>PRESS [Z / ENTER] TO BEGIN</p>
+    </div>
+
+    <div id="encounter-overlay" class="encounter-overlay hidden">
+      <div id="encounter-soul" class="encounter-soul"></div>
+    </div>
+
+  </main>
+</body>
+</html>
