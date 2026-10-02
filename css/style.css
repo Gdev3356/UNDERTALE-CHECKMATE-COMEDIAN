@@ -25,6 +25,11 @@
   --hp-red: #c80000;
   --sp-white: #ffffff;
   --sp-bg: #444444;
+  --game-scale: 1;
+  --joy-size: 150px;
+  --btn-size: 78px;
+  --ctl-idle: 0.65;
+  --ctl-held: 0.9;
 }
 
 * {
@@ -65,7 +70,11 @@ body {
 }
 
 .game-container {
-  position: relative;
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%) scale(var(--game-scale));
+  transform-origin: center center;
   width: 900px;
   height: 720px;
   background-color: var(--bg-color);
@@ -872,4 +881,99 @@ body {
   background-color: #ffffff;
   pointer-events: none;
   z-index: 3;
+}
+
+html.is-mobile,
+html.is-mobile body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-controls {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  pointer-events: none;
+}
+
+.joy-zone {
+  position: absolute;
+  left: calc(14px + env(safe-area-inset-left, 0px));
+  bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  width: var(--joy-size);
+  height: var(--joy-size);
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.joy-base,
+.joy-knob {
+  position: absolute;
+  opacity: var(--ctl-idle);
+  transition: opacity 0.08s linear;
+  pointer-events: none;
+  image-rendering: pixelated;
+  -webkit-user-drag: none;
+}
+
+.joy-base {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.joy-knob {
+  width: 54%;
+  height: 54%;
+  left: 23%;
+  top: 23%;
+  will-change: transform;
+}
+
+.joy-zone.held .joy-base,
+.joy-zone.held .joy-knob {
+  opacity: var(--ctl-held);
+}
+
+.pad-btn {
+  position: absolute;
+  width: var(--btn-size);
+  height: var(--btn-size);
+  padding: 0;
+  border: 0;
+  background: none;
+  outline: none;
+  pointer-events: auto;
+  touch-action: none;
+  opacity: var(--ctl-idle);
+  transition: opacity 0.08s linear;
+}
+
+.pad-btn img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none;
+  image-rendering: pixelated;
+  -webkit-user-drag: none;
+}
+
+.pad-btn.held {
+  opacity: var(--ctl-held);
+}
+
+.pad-z {
+  right: calc(16px + env(safe-area-inset-right, 0px));
+  bottom: calc(14px + var(--btn-size) * 0.55 + env(safe-area-inset-bottom, 0px));
+}
+
+.pad-x {
+  right: calc(16px + var(--btn-size) * 1.2 + env(safe-area-inset-right, 0px));
+  bottom: calc(14px + env(safe-area-inset-bottom, 0px));
 }

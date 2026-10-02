@@ -10,6 +10,149 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const FRISK_TARGET = { x: 450, y: 200 };
 
+  const isMobile = (() => {
+    const coarse = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+    const touch = navigator.maxTouchPoints > 0;
+    const ua = /Android|iPhone|iPad|iPod|Mobi/i.test(navigator.userAgent);
+    return (coarse && touch) || ua;
+  })();
+
+  const joystick = { x: 0, y: 0 };
+  document.documentElement.classList.toggle('is-mobile', isMobile);
+
+  function fitGameToScreen() {
+    const vv = window.visualViewport;
+    const w = vv ? vv.width : window.innerWidth;
+    const h = vv ? vv.height : window.innerHeight;
+    const fit = Math.min(w / gameContainer.offsetWidth, h / gameContainer.offsetHeight);
+    const scale = isMobile ? fit : Math.min(1, fit);
+    const short = Math.min(w, h);
+    const rs = document.documentElement.style;
+    rs.setProperty('--game-scale', String(scale));
+    rs.setProperty('--joy-size', `${Math.round(Math.max(110, Math.min(200, short * 0.34)))}px`);
+    rs.setProperty('--btn-size', `${Math.round(Math.max(60, Math.min(100, short * 0.17)))}px`);
+  }
+
+  fitGameToScreen();
+  window.addEventListener('resize', fitGameToScreen);
+  window.addEventListener('load', fitGameToScreen);
+  window.addEventListener('orientationchange', () => setTimeout(fitGameToScreen, 150));
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', fitGameToScreen);
+
+  function sendKey(key) {
+    gameContainer.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: false, cancelable: true }));
+  }
+
+  function setupMobileControls() {
+    const root = document.createElement('div');
+    root.className = 'mobile-controls';
+    root.innerHTML =
+      '<div class="joy-zone" id="joy-zone">' +
+        '<img class="joy-base" src="assets/sprites/JOYSTICK_BASE.png" alt="" draggable="false">' +
+        '<img class="joy-knob" src="assets/sprites/JOYSTICK.png" alt="" draggable="false">' +
+      '</div>' +
+      '<button class="pad-btn pad-x" id="pad-x" aria-label="X"><img src="assets/sprites/BUTTON_X.png" alt="" draggable="false"></button>' +
+      '<button class="pad-btn pad-z" id="pad-z" aria-label="Z"><img src="assets/sprites/BUTTON_Z.png" alt="" draggable="false"></button>';
+    document.body.appendChild(root);
+
+    document.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+    document.addEventListener('contextmenu', (e) => e.preventDefault());
+    document.addEventListener('gesturestart', (e) => e.preventDefault());
+
+    const zone = root.querySelector('#joy-zone');
+    const knob = root.querySelector('.joy-knob');
+    let joyPointer = null;
+    let menuDir = null;
+    let menuNextAt = 0;
+
+    const dirFromStick = () => {
+      if (Math.hypot(joystick.x, joystick.y) < 0.55) return null;
+      if (Math.abs(joystick.x) > Math.abs(joystick.y)) return joystick.x > 0 ? 'ArrowRight' : 'ArrowLeft';
+      return joystick.y > 0 ? 'ArrowDown' : 'ArrowUp';
+    };
+
+    const moveStick = (e) => {
+      const rect = zone.getBoundingClientRect();
+      const half = rect.width / 2;
+      const dx = e.clientX - (rect.left + half);
+      const dy = e.clientY - (rect.top + half);
+      const travel = half * 0.5;
+      const dist = Math.hypot(dx, dy);
+      const clamped = Math.min(dist, travel);
+      const nx = dist > 0 ? dx / dist : 0;
+      const ny = dist > 0 ? dy / dist : 0;
+      knob.style.transform = `translate(${nx * clamped}px, ${ny * clamped}px)`;
+      const raw = Math.min(1, dist / travel);
+      const mag = raw < 0.15 ? 0 : (raw - 0.15) / 0.85;
+      joystick.x = nx * mag;
+      joystick.y = ny * mag;
+
+      const dir = dirFromStick();
+      if (dir !== menuDir) {
+        menuDir = dir;
+        menuNextAt = performance.now() + 380;
+        if (dir) sendKey(dir);
+      }
+    };
+
+    const releaseStick = () => {
+      joyPointer = null;
+      joystick.x = 0;
+      joystick.y = 0;
+      menuDir = null;
+      knob.style.transform = '';
+      zone.classList.remove('held');
+    };
+
+    zone.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      if (joyPointer !== null) return;
+      joyPointer = e.pointerId;
+      zone.setPointerCapture(e.pointerId);
+      zone.classList.add('held');
+      moveStick(e);
+    });
+    zone.addEventListener('pointermove', (e) => {
+      if (e.pointerId === joyPointer) moveStick(e);
+    });
+    ['pointerup', 'pointercancel', 'lostpointercapture'].forEach((type) => {
+      zone.addEventListener(type, (e) => {
+        if (e.pointerId === joyPointer) releaseStick();
+      });
+    });
+
+    setInterval(() => {
+      if (menuDir && performance.now() >= menuNextAt) {
+        sendKey(menuDir);
+        menuNextAt = performance.now() + 170;
+      }
+    }, 30);
+
+    const bindPad = (el, key) => {
+      el.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        el.setPointerCapture(e.pointerId);
+        el.classList.add('held');
+        sendKey(key);
+        if (key === 'z') {
+          window.dispatchEvent(new KeyboardEvent('keydown', { key }));
+          window.dispatchEvent(new KeyboardEvent('keyup', { key }));
+        }
+      });
+      ['pointerup', 'pointercancel', 'lostpointercapture'].forEach((type) => {
+        el.addEventListener(type, () => el.classList.remove('held'));
+      });
+    };
+    bindPad(root.querySelector('#pad-z'), 'z');
+    bindPad(root.querySelector('#pad-x'), 'x');
+  }
+
+  if (isMobile) {
+    setupMobileControls();
+    const startText = startScreen.querySelector('p');
+    if (startText) startText.textContent = 'TOUCH TO BEGIN';
+  }
+
   function resizeBulletBox(width, height) {
     if (!dialogueBox) return;
     dialogueBox.style.width = typeof width === 'number' ? `${width}px` : width;
@@ -1229,7 +1372,7 @@ document.addEventListener('DOMContentLoaded', () => {
     dialogueText.innerHTML = html;
 
     const optionEls = dialogueText.querySelectorAll('.menu-option');
-    optionEls.forEach((el) => {
+    if (!isMobile) optionEls.forEach((el) => {
       const idx = parseInt(el.getAttribute('data-index'), 10);
       el.addEventListener('mouseenter', () => {
         if (currentOptionIndex !== idx) {
@@ -1620,7 +1763,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 restartHint.style.fontSize = '16px';
                 restartHint.style.marginTop = '40px';
                 restartHint.style.color = '#888';
-                restartHint.textContent = 'PRESS [Z / ENTER] TO TRY AGAIN';
+                restartHint.textContent = isMobile ? 'TOUCH TO TRY AGAIN' : 'PRESS [Z / ENTER] TO TRY AGAIN';
                 element.appendChild(restartHint);
                 
                 window.addEventListener('keydown', (e) => {
@@ -1660,7 +1803,8 @@ document.addEventListener('DOMContentLoaded', () => {
   function elementPosInGameContainer(el) {
     const parentRect = gameContainer.getBoundingClientRect();
     const rect = el.getBoundingClientRect();
-    return { x: rect.left - parentRect.left, y: rect.top - parentRect.top, w: rect.width, h: rect.height };
+    const k = gameContainer.offsetWidth ? parentRect.width / gameContainer.offsetWidth : 1;
+    return { x: (rect.left - parentRect.left) / k, y: (rect.top - parentRect.top) / k, w: rect.width / k, h: rect.height / k };
   }
 
   function spawnSoulShards(cx, cy, tint) {
@@ -2944,6 +3088,10 @@ function shouldHumanHeal() {
       if (canMove && keysPressed['ArrowRight'] || keysPressed['d'] || keysPressed['D']) soulPos.x += speed;
       if (canMove && keysPressed['ArrowUp'] || keysPressed['w'] || keysPressed['W']) soulPos.y -= speed;
       if (canMove && keysPressed['ArrowDown'] || keysPressed['s'] || keysPressed['S']) soulPos.y += speed;
+      if (canMove) {
+        soulPos.x += joystick.x * speed;
+        soulPos.y += joystick.y * speed;
+      }
 
       const margin = 4;
       soulPos.x = Math.max(margin, Math.min(BOX - SOUL_SIZE - margin, soulPos.x));
@@ -3146,7 +3294,7 @@ function shouldHumanHeal() {
     }
   });
 
-  dialogueBox.addEventListener('click', () => {
+  if (!isMobile) dialogueBox.addEventListener('click', () => {
     if (currentState === STATES.TEXT_DISPLAY) {
       if (isTyping) {
         finishTypingInstantly(currentResultText);
@@ -3156,7 +3304,7 @@ function shouldHumanHeal() {
     }
   });
 
-  buttons.forEach((btn, idx) => {
+  if (!isMobile) buttons.forEach((btn, idx) => {
     btn.addEventListener('mouseenter', () => {
       if (currentState === STATES.MAIN_MENU && currentBtnIndex !== idx) {
         currentBtnIndex = idx;
