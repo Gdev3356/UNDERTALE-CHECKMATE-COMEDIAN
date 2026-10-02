@@ -370,12 +370,71 @@ document.addEventListener('DOMContentLoaded', () => {
   ];
   const PRELOAD_FILES = [...PRELOAD_SPRITES.map(n => `${SPR}${n}.png`), `${SPR}static.gif`];
   const preloadedImages = [];
+  let staticGifOk = false;
+
+  function playStaticEffect(durationMs = 600) {
+    const overlay = document.createElement('div');
+    overlay.style.position = 'absolute';
+    overlay.style.top = '0';
+    overlay.style.left = '0';
+    overlay.style.width = '100%';
+    overlay.style.height = '100%';
+    overlay.style.zIndex = '9999';
+    overlay.style.pointerEvents = 'none';
+    overlay.style.opacity = '1';
+    overlay.style.transition = `opacity ${durationMs}ms ease-out`;
+
+    let running = true;
+    if (staticGifOk) {
+      overlay.style.backgroundImage = "url('assets/sprites/static.gif')";
+      overlay.style.backgroundSize = 'cover';
+    } else {
+      const cv = document.createElement('canvas');
+      cv.width = 160;
+      cv.height = 120;
+      cv.style.width = '100%';
+      cv.style.height = '100%';
+      cv.style.display = 'block';
+      cv.style.imageRendering = 'pixelated';
+      overlay.appendChild(cv);
+      const ctx = cv.getContext('2d');
+      const frame = ctx.createImageData(cv.width, cv.height);
+      const draw = () => {
+        if (!running) return;
+        const d = frame.data;
+        for (let i = 0; i < d.length; i += 4) {
+          const v = Math.random() * 256;
+          d[i] = v;
+          d[i + 1] = v;
+          d[i + 2] = v;
+          d[i + 3] = 255;
+        }
+        ctx.putImageData(frame, 0, 0);
+        requestAnimationFrame(draw);
+      };
+      draw();
+    }
+
+    gameContainer.appendChild(overlay);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        overlay.style.opacity = '0';
+      });
+    });
+    setTimeout(() => {
+      running = false;
+      overlay.remove();
+    }, durationMs);
+  }
 
   function preloadAssets() {
     const images = PRELOAD_FILES.map(src => new Promise(resolve => {
       const img = new Image();
       preloadedImages.push(img);
-      img.onload = () => (img.decode ? img.decode().catch(() => {}) : Promise.resolve()).then(resolve);
+      img.onload = () => {
+        if (src.endsWith('static.gif')) staticGifOk = true;
+        (img.decode ? img.decode().catch(() => {}) : Promise.resolve()).then(resolve);
+      };
       img.onerror = resolve;
       img.src = src;
     }));
@@ -1716,7 +1775,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const MAX_ACTIVE_KNIVES = 5;
   const KNIFE_SPAWN_CUTOFF = 110;
   const HIT_SP_COST = 1;
-  const IV_DURATION_MS = 1000;
+  const IV_DURATION_MS = 620;
   const IV_FLICKER_MS = 90;
   const IV_DIM_OPACITY = 0.4;
   const TELEPORT_BLACKOUT_MS = 140;
@@ -2194,25 +2253,7 @@ function shouldHumanHeal() {
                 onDone: () => {    
                     setTimeout(() => {
                         sounds.play('static', 0.8);
-                        const staticOverlay = document.createElement('div');
-                        staticOverlay.style.position = 'absolute';
-                        staticOverlay.style.top = '0';
-                        staticOverlay.style.left = '0';
-                        staticOverlay.style.width = '100%';
-                        staticOverlay.style.height = '100%';
-                        staticOverlay.style.backgroundImage = "url('assets/sprites/static.gif')";
-                        staticOverlay.style.backgroundSize = 'cover';
-                        staticOverlay.style.zIndex = '9999';
-                        staticOverlay.style.opacity = '1';
-                        staticOverlay.style.transition = 'opacity 0.6s ease-out';
-                        gameContainer.appendChild(staticOverlay);
-                        
-                        requestAnimationFrame(() => {
-                            requestAnimationFrame(() => {
-                                staticOverlay.style.opacity = '0'; 
-                            });
-                        });
-                        setTimeout(() => staticOverlay.remove(), 600);
+                        playStaticEffect(600);
                         
                         const now = new Date();
                         const hrs = now.getHours();
