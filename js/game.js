@@ -349,8 +349,48 @@ document.addEventListener('DOMContentLoaded', () => {
   [
     'encounter', 'flicker', 'enter_battle', 'menu_text', 'sans', 'change', 'ding',
     'phswoo', 'blast_charge', 'blast', 'bone_zone', 'pchew', 'hurt',
-    'hphw', 'blip', 'slice', 'slash', 'hit', 'hit2', 'switch', 'heal', 'dingding', 'soul_split', 'soul_shatter', 'static', 'save', 'dust', 'papyrus', 'dingding'
+    'hphw', 'blip', 'slice', 'slash', 'hit', 'hit2', 'switch', 'heal', 'dingding', 'soul_split', 'soul_shatter', 'static', 'save', 'dust', 'papyrus'
   ].forEach(sfx => sounds.loadSound(sfx));
+
+  const PRELOAD_SPRITES = [
+    'FRISK_HEAD_IDLE', 'FRISK_TORSO_IDLE', 'FRISK_LEGS_IDLE',
+    'FRISK_HEAD_DODGING_SIDES', 'FRISK_TORSO_DODGING_LEFT', 'FRISK_TORSO_DODGING_RIGHT', 'FRISK_LEGS_DODGING_SIDES',
+    'FRISK_HEAD_DOWN', 'FRISK_TORSO_DODGING_BACK', 'FRISK_LEGS_DODGING_BACK', 'FRISK_TORSO_DEAD', 'MISS',
+    'FRISK_HEAD_SLICE', 'FRISK_HEAD_SLICE_1',
+    'FRISK_TORSO_SLICE_UP', 'FRISK_TORSO_SLICE_UP_1', 'FRISK_TORSO_SLICE_UP_2', 'FRISK_TORSO_SLICE_UP_3',
+    'FRISK_TORSO_SLICE_SIDES', 'FRISK_TORSO_SLICE_SIDES_2', 'FRISK_TORSO_SLICE_SIDES_3', 'FRISK_LEGS_SLASH',
+    'SLASH', 'SLASH_1', 'SLASH_2', 'SLASH_3', 'SLASH_4', 'SLASH_5',
+    'GASTER_BLASTER', 'GASTER_BLASTER_1', 'GASTER_BLASTER_2', 'GASTER_BLASTER_3',
+    'GASTER_BLASTER_4', 'GASTER_BLASTER_5', 'GASTER_BLASTER_6',
+    'SOUL', 'SOUL_LEFT', 'SOUL_RIGHT', 'SOUL_MONSTER', 'SOUL_MONSTER_LEFT',
+    'HEART_LOCKET', 'KNIFE', 'BONE_TOP', 'BONE_MIDDLE',
+    'btn_fight', 'btn_fight_hovered', 'btn_act', 'btn_act_hovered',
+    'btn_item', 'btn_item_hovered', 'btn_mercy', 'btn_mercy_hovered',
+    'GAME_OVER_TEXT'
+  ];
+  const PRELOAD_FILES = [...PRELOAD_SPRITES.map(n => `${SPR}${n}.png`), `${SPR}static.gif`];
+  const preloadedImages = [];
+
+  function preloadAssets() {
+    const images = PRELOAD_FILES.map(src => new Promise(resolve => {
+      const img = new Image();
+      preloadedImages.push(img);
+      img.onload = () => (img.decode ? img.decode().catch(() => {}) : Promise.resolve()).then(resolve);
+      img.onerror = resolve;
+      img.src = src;
+    }));
+
+    const fonts = document.fonts
+      ? ['Pixel Comic Sans', 'Papyrus', '8BitOperator', 'hachiro'].map(f => document.fonts.load(`16px "${f}"`).catch(() => {}))
+      : [];
+
+    const music = [sounds.loadSound('no_hope', 'mp3'), sounds.loadSound('game_over', 'mp3')];
+
+    return Promise.all([...images, ...fonts, ...music]);
+  }
+
+  const assetsReady = preloadAssets();
+  let encounterStarting = false;
 
   const STATES = {
     INTRO: 'INTRO',
@@ -384,6 +424,14 @@ document.addEventListener('DOMContentLoaded', () => {
     { id: 'ketchup', name: 'Ketchup', qty: 1, consumable: true },
     { id: 'pie',     name: 'Pie',     qty: 1, consumable: false }
   ];
+
+  function restoreSansItems() {
+    inventory.forEach(item => {
+      if (item.id === 'hotdog') item.qty = 2;
+      if (item.id === 'ketchup') item.qty = 1;
+      if (item.id === 'pie') item.qty = 1;
+    });
+  }
 
   function getItemList() {
     return inventory.filter(item => item.qty > 0);
@@ -496,8 +544,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const FLAVOR_TEXTS = [
     "* it's a beautiful day outside.\n* birds are singing, flowers are blooming.\n* on days like these... kids like them.",
     "* The human is staring through you with cold, empty eyes.",
-    "* timelines jumping left and right. \n* starting and stopping \n * until suddenly it stops.",
-    "* the cause? heh, guess it standing before me.",
     "* i can feel their sins crawling on their back...\n * this is why i never make promises.",
     "* it's the anomaly themselves.",
     "* The smell of hot dogs fills you with... something.",
@@ -1009,8 +1055,6 @@ document.addEventListener('DOMContentLoaded', () => {
       lower.startsWith("* i am here to make em quit") ||
       lower.startsWith("* i take") ||
       lower.startsWith("* i attempt") ||
-      lower.startsWith("* timelines jumping left and right.") ||
-      lower.startsWith("* the cause? heh, guess it standing before me.") ||
       lower.startsWith("* i read their expression...") ||
       lower.startsWith("* that's the face of someone who's died once.") ||
       lower.startsWith("* let's see if we can make it two.") ||
@@ -1044,6 +1088,14 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function startEncounterSequence() {
+    if (encounterStarting) return;
+    encounterStarting = true;
+    sounds.resume();
+    Promise.race([assetsReady, new Promise(resolve => setTimeout(resolve, 6000))]).then(beginEncounterSequence);
+  }
+
+  function beginEncounterSequence() {
+    encounterStarting = false;
     sounds.resume();
     startScreen.style.display = 'none';
     encounterOverlay.classList.remove('hidden');
@@ -1187,7 +1239,6 @@ document.addEventListener('DOMContentLoaded', () => {
               currentResultText = restoredSP > 0
                   ? `* i take a brief pause... a nap would be nice right now.\n* Recovered ${restoredSP} SP!\n* ...but my legs feel heavy.`
                   : "* i take a brief pause.\n* SP is already full, but my legs feel heavy.";
-                  sounds.play('dingding', 0.9);
               break;
             case 4: {
               const tauntPages = getTauntDialogue(humanDeathCount);
@@ -1435,6 +1486,9 @@ document.addEventListener('DOMContentLoaded', () => {
     humanInventory.length = 0;
     humanInventory.push(...rollHumanInventory());
 
+    restoreSansItems();
+    restSlowNextTurn = false;
+
     currentBtnIndex = 0;
     currentOptionIndex = 0;
     flavorIndex = 0;
@@ -1589,6 +1643,7 @@ document.addEventListener('DOMContentLoaded', () => {
       requestAnimationFrame(step);
     }
   }
+
   
   function shatterSoul(x, y, { size = 20, tint = null, onDone = null, onShatterStart = null } = {}) {
     if (!gameContainer) {
@@ -1661,7 +1716,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const MAX_ACTIVE_KNIVES = 5;
   const KNIFE_SPAWN_CUTOFF = 110;
   const HIT_SP_COST = 1;
-  const IV_DURATION_MS = 600;
+  const IV_DURATION_MS = 1000;
   const IV_FLICKER_MS = 90;
   const IV_DIM_OPACITY = 0.4;
   const TELEPORT_BLACKOUT_MS = 140;
@@ -1676,7 +1731,7 @@ document.addEventListener('DOMContentLoaded', () => {
     FADE_IN: 60,
     FADE_OUT: 30,
     GRAVITY: 0.001,
-    PUSH_KEYS: [[0, 0.05], [95, 0.97], [125, 1.17], [200, 1.17], [235, 0], [275, 0], [305, 0.9], [330, 1.17], [420, 1.17], [455, 0]],                  
+    PUSH_KEYS: [[0, 0.05], [95, 0.97], [125, 1.17], [200, 1.17], [235, 0], [275, 0], [305, 0.9], [330, 1.17], [420, 1.17], [455, 0]],
     DAMP_KEYS: [[0, 0], [200, 0], [225, 0.02], [295, 0.02], [325, 0], [420, 0], [445, 0.012]],
     MIN_FRAMES: 455,
     MAX_FRAMES: 650,
@@ -1686,7 +1741,7 @@ document.addEventListener('DOMContentLoaded', () => {
     CORNER_CAMP_FRAMES: 12,
     CORNER_KNIFE_COOLDOWN: 40,
     CORNER_KNIFE_TRACK: 18,
-    CORNER_CLIP: false
+    CORNER_CLIP: false 
   };
 
   const locketSprite = new Image();
@@ -1728,7 +1783,6 @@ document.addEventListener('DOMContentLoaded', () => {
     return path;
   }
 
-
   const SLASH = {
     BEATS: 4,
     FIRST_DELAY: 30,
@@ -1757,8 +1811,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const FRISK_SLASH_POSES = {
     down: {
       windup: [
-        { torso: 'FRISK_TORSO_SLICE_UP',   handX: 47, handY: 57, yOff: -2, head: 'FRISK_HEAD_SLICE', backLegs: false },
-        { torso: 'FRISK_TORSO_SLICE_UP_1', handX: 47, handY: 57, yOff: -2, head: 'FRISK_HEAD_SLICE', backLegs: false }
+        { torso: 'FRISK_TORSO_SLICE_UP',   handX: 47, handY: 57, yOff: -2, head: 'FRISK_HEAD_SLICE', legs: 'FRISK_LEGS_SLASH', backLegs: false },
+        { torso: 'FRISK_TORSO_SLICE_UP_1', handX: 47, handY: 57, yOff: -2, head: 'FRISK_HEAD_SLICE', legs: 'FRISK_LEGS_SLASH', backLegs: false }
       ],
       strike: [
         { torso: 'FRISK_TORSO_SLICE_UP_2', handX: 47, handY: 57, yOff: 1, head: null,                 backLegs: true  },
@@ -1767,7 +1821,7 @@ document.addEventListener('DOMContentLoaded', () => {
     },
     sides: {
       windup: [
-        { torso: 'FRISK_TORSO_SLICE_SIDES', handX: 47, handY: 50, yOff: -2, head: 'FRISK_HEAD_SLICE', backLegs: false }
+        { torso: 'FRISK_TORSO_SLICE_SIDES', handX: 47, handY: 50, yOff: -2, head: 'FRISK_HEAD_SLICE', legs: 'FRISK_LEGS_SLASH', backLegs: false }
       ],
       strike: [
         { torso: 'FRISK_TORSO_SLICE_SIDES_2', handX: 47, handY: 33, yOff: 1, head: null,                 backLegs: true  },
@@ -1797,9 +1851,11 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     img.src = `${SPR}${file}.png`;
   });
+
   Object.values(FRISK_SLASH_POSES).flatMap(p => [...p.windup, ...p.strike]).forEach(f => {
     new Image().src = `${SPR}${f.torso}.png`;
     if (f.head) new Image().src = `${SPR}${f.head}.png`;
+    if (f.legs) new Image().src = `${SPR}${f.legs}.png`;
   });
 
   let friskPoseSaved = null;
@@ -1813,6 +1869,7 @@ document.addEventListener('DOMContentLoaded', () => {
         legs: friskLegsEl.getAttribute('src')
       };
     }
+
     friskHeadEl.style.animation = 'none';
     friskTorsoEl.style.animation = 'none';
 
@@ -1829,7 +1886,14 @@ document.addEventListener('DOMContentLoaded', () => {
     friskTorsoEl.style.transformOrigin = `${26 - left}px 0`;
     friskTorsoEl.style.transform = flip ? 'scaleX(-1)' : 'none';
 
-    friskLegsEl.src = frame.backLegs ? FRISK_DODGE_SPRITES.back.legs : (friskPoseSaved.legs || FRISK_IDLE_SPRITES.legs);
+    if (frame.backLegs) {
+      friskLegsEl.src = FRISK_DODGE_SPRITES.back.legs;
+    } else if (frame.legs) {
+      friskLegsEl.src = `${SPR}${frame.legs}.png`;
+    } else {
+      friskLegsEl.src = friskPoseSaved.legs || FRISK_IDLE_SPRITES.legs;
+    }
+    friskLegsEl.style.transform = frame.legs && flip ? 'translateX(-50%) scaleX(-1)' : '';
   }
 
   function resetFriskSlashPose() {
@@ -1837,6 +1901,7 @@ document.addEventListener('DOMContentLoaded', () => {
     friskHeadEl.setAttribute('src', friskPoseSaved.head);
     friskTorsoEl.setAttribute('src', friskPoseSaved.torso);
     friskLegsEl.setAttribute('src', friskPoseSaved.legs);
+    friskLegsEl.style.transform = '';
     [friskHeadEl, friskTorsoEl].forEach(el => {
       el.style.animation = '';
       el.style.transform = '';
@@ -1871,7 +1936,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let halfW = (p.w * (1 - 2 * insetX)) / 2;
     let halfH = (p.h * (1 - 2 * insetY)) / 2;
 
-
     if (isKnife && (p.dir === 'left' || p.dir === 'right')) {
       [halfW, halfH] = [halfH, halfW];
     }
@@ -1898,7 +1962,6 @@ document.addEventListener('DOMContentLoaded', () => {
     );
   }
 
-
   function spawnKnifeTrail(p) {
     if (!dialogueBox) return;
     const trail = document.createElement('div');
@@ -1917,7 +1980,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 220);
   }
 
-
   function updateKnifeFlash(p) {
     const total = (p.trackFrames || KNIFE_TRACK_FRAMES) + KNIFE_LOCK_FRAMES;
     p.age++;
@@ -1932,13 +1994,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-
   function placeProjectile(p) {
     p.el.style.left = `${p.cx - p.w / 2}px`;
     p.el.style.top = `${p.cy - p.h / 2}px`;
     p.el.style.transform = `rotate(${p.rotation}deg)`;
   }
-
 
 function shouldHumanHeal() {
     if (healedLastRound) return false;
@@ -1948,7 +2008,6 @@ function shouldHumanHeal() {
     if (usable.length === 0) return false;
 
     const missing = friskMaxHP - friskCurrentHP;
-
 
     const minHealAvailable = Math.min(...usable.map(i => i.heal));
     if (missing < 12 && friskCurrentHP > 30) return false;
@@ -2132,7 +2191,7 @@ function shouldHumanHeal() {
             shatterSoul(chestRect.x, chestRect.y, {
                 size: 20,
                 tint: 'red',
-                onDone: () => {           
+                onDone: () => {    
                     setTimeout(() => {
                         sounds.play('static', 0.8);
                         const staticOverlay = document.createElement('div');
@@ -2238,10 +2297,7 @@ function shouldHumanHeal() {
     humanInventory.length = 0;
     humanInventory.push(...rollHumanInventory());
 
-    inventory.forEach(item => {
-      if (item.id === 'hotdog') item.qty = 2;
-      if (item.id === 'ketchup') item.qty = 1;
-    });
+    restoreSansItems();
 
     currentBtnIndex = 0;
     flavorIndex = 0;
@@ -2276,7 +2332,7 @@ function shouldHumanHeal() {
 
   let keysPressed = {};
   let soulPos = { x: 0, y: 0 };
-  let humanLoopId = null;
+  //let humanLoopId = null;
 
   function startHumanTurn() {
     currentState = STATES.HUMAN_ATTACK;
@@ -2433,7 +2489,7 @@ function shouldHumanHeal() {
       }
     }
 
-    let turnTimeLeft = 360; 
+    let turnTimeLeft = 360;
 
     const pattern = Math.floor(Math.random() * 3);
 
@@ -2842,7 +2898,6 @@ function shouldHumanHeal() {
       if (currentState !== STATES.HUMAN_ATTACK) return;
 
       const speed = 2.2 * moveMult;
-
       const canMove = !teleporting;
       if (canMove && keysPressed['ArrowLeft'] || keysPressed['a'] || keysPressed['A']) soulPos.x -= speed;
       if (canMove && keysPressed['ArrowRight'] || keysPressed['d'] || keysPressed['D']) soulPos.x += speed;
@@ -2909,7 +2964,6 @@ function shouldHumanHeal() {
           p.cx += p.vx;
           p.cy += p.vy;
           placeProjectile(p);
-
           if (p.type === 'knife') {
             p.frameCount++;
             if (p.frameCount % 2 === 0) {
