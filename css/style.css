@@ -977,3 +977,15 @@ html.is-mobile body {
   right: calc(16px + var(--btn-size) * 1.2 + env(safe-area-inset-right, 0px));
   bottom: calc(14px + env(safe-area-inset-bottom, 0px));
 }
+
+html.is-mobile .knife-trail {
+  filter: none;
+}
+
+html.is-mobile .human-projectile.knife.flash-red {
+  filter: brightness(0) saturate(100%) invert(11%) sepia(96%) saturate(6478%) hue-rotate(358deg) brightness(102%) contrast(115%);
+}
+
+html.is-mobile .blue-bone {
+  filter: none;
+}

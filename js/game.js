@@ -2766,12 +2766,13 @@ function shouldHumanHeal() {
       g.style.top = `${s.pivotY - s.len * PIVOT_ORIGIN_Y}px`;
       g.style.transformOrigin = `50% ${PIVOT_ORIGIN_Y * 100}%`;
       g.style.transform = `rotate(${angle + SPRITE_ROT}rad)`;
-      g.style.transition = `opacity ${SP.GHOST_MS}ms ease-out`;
-      g.style.opacity = String(0.18 + 0.4 * strength);
-      spinnerClip.appendChild(g);
-      void g.offsetWidth;
       g.style.opacity = '0';
-      setTimeout(() => g.remove(), SP.GHOST_MS + 50);
+      spinnerClip.appendChild(g);
+      const fade = g.animate(
+        [{ opacity: 0.18 + 0.4 * strength }, { opacity: 0 }],
+        { duration: SP.GHOST_MS, easing: 'ease-out' }
+      );
+      fade.onfinish = () => g.remove();
     }
 
     function inCornerZone(cx, cy) {
@@ -2809,7 +2810,7 @@ function shouldHumanHeal() {
       }
 
       const speed = Math.min(1, Math.abs(omega) / 0.075);
-      if (speed > 0.06) spawnSpinnerGhost(s, s.angle, speed);
+      if (speed > 0.06 && (!isMobile || f % 2 === 0)) spawnSpinnerGhost(s, s.angle, speed);
 
       s.omega = omega;
       s.angle += omega;
@@ -2920,7 +2921,7 @@ function shouldHumanHeal() {
       const s = slashBeat;
       const vertical = s.dir === 'down';
       s.age++;
-      placeSlashLayer();
+      if (s.age === 1 || s.age % 20 === 0) placeSlashLayer();
 
       if (s.age === ANIM_AT) {
         applyFriskSlashPose(s.poses.windup[0], s.flip);
@@ -3079,7 +3080,7 @@ function shouldHumanHeal() {
       };
     }
 
-    function updateHumanTurn() {
+    function stepHumanTurn() {
       if (currentState !== STATES.HUMAN_ATTACK) return;
 
       const speed = 2.2 * moveMult;
@@ -3155,7 +3156,7 @@ function shouldHumanHeal() {
           placeProjectile(p);
           if (p.type === 'knife') {
             p.frameCount++;
-            if (p.frameCount % 2 === 0) {
+            if (p.frameCount % (isMobile ? 4 : 2) === 0) {
               spawnKnifeTrail(p);
             }
           }
@@ -3202,8 +3203,24 @@ function shouldHumanHeal() {
         advanceFlavorText();
         typeText(getCurrentFlavorText());
       } else {
-        humanLoopId = requestAnimationFrame(updateHumanTurn);
+        return true;
       }
+    }
+
+    const STEP_MS = 1000 / 60;
+    let loopLast = performance.now();
+    let loopAcc = 0;
+
+    function updateHumanTurn(now) {
+      const t = typeof now === 'number' ? now : performance.now();
+      loopAcc += Math.min(t - loopLast, 100);
+      loopLast = t;
+      let alive = true;
+      while (alive && loopAcc >= STEP_MS) {
+        loopAcc -= STEP_MS;
+        alive = stepHumanTurn() === true;
+      }
+      if (alive) humanLoopId = requestAnimationFrame(updateHumanTurn);
     }
 
     humanLoopId = requestAnimationFrame(updateHumanTurn);
