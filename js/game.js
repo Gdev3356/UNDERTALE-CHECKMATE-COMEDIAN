@@ -3083,7 +3083,7 @@ function shouldHumanHeal() {
     function stepHumanTurn() {
       if (currentState !== STATES.HUMAN_ATTACK) return;
 
-      const speed = 2.2 * moveMult;
+      const speed = 3.5 * moveMult;
       const canMove = !teleporting;
       if (canMove && keysPressed['ArrowLeft'] || keysPressed['a'] || keysPressed['A']) soulPos.x -= speed;
       if (canMove && keysPressed['ArrowRight'] || keysPressed['d'] || keysPressed['D']) soulPos.x += speed;
